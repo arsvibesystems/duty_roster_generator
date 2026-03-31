@@ -496,6 +496,9 @@ STAFF.forEach(s=>{
   leaveStaffSel.appendChild(o);
 });
 
+// ── Run after dropdowns are ready ──
+if (!restoreSavedState()) generateRoster();
+
 function isWeekend(date) {
   const d = date.getDay();
   return d === 5 || d === 6; // Fri=5, Sat=6
@@ -972,7 +975,7 @@ function exportExcel() {
 }
 
 // Auto-generate on load — skip if restoring a saved file
-if (!restoreSavedState()) generateRoster();
+// init handled after dropdowns are populated — see below
 
 function saveRoster() {
   if (!rosterData) return alert('Please generate the roster first.');
