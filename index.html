@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monthly Duty Roster</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1117;
+    --surface: #161b27;
+    --surface2: #1e2636;
+    --border: #2a3347;
+    --accent: #4f8ef7;
+    --accent2: #f7934f;
+    --accent3: #4fd9a0;
+    --text: #e8edf5;
+    --text-muted: #6b7a99;
+    --M: #4f8ef7;
+    --M1: #f7934f;
+    --M2: #4fd9a0;
+    --M5: #c97cf7;
+    --leave: #f74f6b;
+    --off: #2a3347;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  select, input[type="number"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  select:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  button {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-generate {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-generate:hover { background: #3a7ae0; }
+  .btn-save {
+    background: #f7c94f;
+    color: #0e1117;
+  }
+  .btn-save:hover { background: #e6b83a; }
+  .btn-export {
+    background: var(--accent3);
+    color: #0e1117;
+  }
+  .btn-export:hover { background: #3bc88b; }
+  .btn-clear-leave {
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-clear-leave:hover { border-color: var(--leave); color: var(--leave); }
+
+  .leave-section {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .leave-section label { font-size: 0.82rem; color: var(--text-muted); font-weight: 500; }
+  .leave-dates-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    outline: none;
+    min-width: 160px;
+  }
+  .leave-dates-input:focus { border-color: var(--leave); }
+  .leave-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(247,79,107,0.15);
+    color: var(--leave);
+    border: 1px solid rgba(247,79,107,0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .leave-tag span { cursor: pointer; font-size: 1rem; line-height: 1; }
+  .leave-tags-container { display: flex; gap: 6px; flex-wrap: wrap; max-width: 500px; }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    padding: 12px 28px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    padding: 20px 28px;
+  }
+  table {
+    border-collapse: collapse;
+    min-width: 100%;
+    font-size: 0.8rem;
+  }
+  th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 6px;
+    text-align: center;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  th.staff-col {
+    text-align: left;
+    padding-left: 14px;
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 110px;
+  }
+  td {
+    padding: 5px 4px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid rgba(42,51,71,0.5);
+  }
+  td.staff-name {
+    text-align: left;
+    padding-left: 14px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--text);
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 1;
+    min-width: 110px;
+    border-right: 2px solid var(--border);
+  }
+  tr:nth-child(even) td { background: rgba(30,38,54,0.4); }
+  tr:nth-child(even) td.staff-name { background: var(--surface); }
+  tr:hover td { background: rgba(79,142,247,0.05); }
+  tr:hover td.staff-name { background: var(--surface); }
+
+  .duty-badge {
+    display: inline-block;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    min-width: 32px;
+  }
+  .badge-M { background: rgba(79,142,247,0.18); color: var(--M); }
+  .badge-M1 { background: rgba(247,147,79,0.18); color: var(--M1); }
+  .badge-M2 { background: rgba(79,217,160,0.18); color: var(--M2); }
+  .badge-M5 { background: rgba(201,124,247,0.18); color: var(--M5); }
+  .badge-LEAVE { background: rgba(247,79,107,0.18); color: var(--leave); font-size: 0.65rem; }
+  .badge-OFF { background: var(--off); color: var(--text-muted); font-size: 0.65rem; }
+
+  .date-header { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .date-num { font-size: 0.78rem; font-weight: 700; color: var(--text); }
+  .date-day { font-size: 0.62rem; color: var(--text-muted); }
+  .weekend-col { background: rgba(42,51,71,0.3) !important; }
+  .weekend-col.staff-name { background: var(--surface) !important; }
+
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    padding: 10px 28px 0;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .stat-chip strong { color: var(--text); }
+  .warn-chip {
+    background: rgba(247,147,79,0.1);
+    border-color: rgba(247,147,79,0.3);
+    color: var(--accent2);
+  }
+  .error-chip {
+    background: rgba(247,79,107,0.1);
+    border-color: rgba(247,79,107,0.3);
+    color: var(--leave);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state .big { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty-state p { font-size: 0.9rem; }
+
+  .summary-table {
+    margin: 10px 28px 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .summary-table table { width: 100%; font-size: 0.8rem; }
+  .summary-table th { background: var(--surface2); font-size: 0.72rem; padding: 7px 10px; }
+  .summary-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table td:first-child { text-align: left; font-weight: 600; }
+
+  .leave-range-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+  }
+  .leave-range-wrap:focus-within { border-color: var(--leave); }
+  .leave-range-wrap .leave-dates-input {
+    background: transparent;
+    border: none;
+    padding: 4px 2px;
+    min-width: 130px;
+  }
+  .range-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .freeze-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 11px 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .freeze-bar label { font-size: 0.82rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+  .freeze-hint { font-size: 0.75rem; color: var(--text-muted); font-style: italic; }
+  .freeze-active-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(201,124,247,0.12);
+    border: 1px solid rgba(201,124,247,0.35);
+    color: #c97cf7;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .freeze-active-badge span { cursor: pointer; font-size: 1rem; }
+  .btn-clear-freeze {
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-clear-freeze:hover { border-color: #c97cf7; color: #c97cf7; }
+  td.frozen-col { opacity: 0.55; }
+  td.frozen-col .duty-badge { filter: saturate(0.4); }
+  @media (max-width: 600px) {
+    header, .leave-section, .freeze-bar, .table-wrapper, .stats-bar { padding-left: 12px; padding-right: 12px; }
+    .legend { padding-left: 12px; padding-right: 12px; }
+    .summary-table { margin-left: 12px; margin-right: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">⬡ Duty Roster</div>
+  <div class="controls">
+    <select id="monthSel"></select>
+    <select id="yearSel"></select>
+    <button class="btn-generate" onclick="generateRoster()">Generate Roster</button>
+    <button class="btn-save" onclick="saveRoster()">💾 Save Roster</button>
+    <button class="btn-export" onclick="exportExcel()">Export to Excel</button>
+  </div>
+</header>
+
+<div class="leave-section">
+  <label>Mark Leave:</label>
+  <select id="leaveStaff"></select>
+  <div class="leave-range-wrap">
+    <span class="range-label">From</span>
+    <input type="date" id="leaveFrom" class="leave-dates-input">
+    <span class="range-label">To</span>
+    <input type="date" id="leaveTo" class="leave-dates-input">
+  </div>
+  <button class="btn-generate" style="padding:7px 14px;" onclick="addLeave()">+ Add</button>
+  <button class="btn-clear-leave" onclick="clearAllLeave()">Clear All</button>
+  <div class="leave-tags-container" id="leaveTags"></div>
+</div>
+
+<div class="freeze-bar" id="freezeBar">
+  <label>🔒 Freeze up to date:</label>
+  <input type="date" id="freezeDate" class="leave-dates-input" placeholder="Optional">
+  <button class="btn-clear-freeze" onclick="clearFreeze()">Clear</button>
+  <span class="freeze-hint" id="freezeHint">Duties up to this date stay fixed; remaining days are re-generated.</span>
+  <span id="freezeActiveBadge"></span>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--M)"></div>M - Morning</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--M1)"></div>M1 - Morning 1</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--M2)"></div>M2 - Morning 2</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--M5)"></div>M5 - Morning 5</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--leave)"></div>Leave (L)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--off)"></div>Off (O)</div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+<div class="table-wrapper" id="rosterContainer">
+  <div class="empty-state">
+    <div class="big">📋</div>
+    <p>Select month & year, then click <strong>Generate Roster</strong></p>
+  </div>
+</div>
+<div id="summaryContainer"></div>
+
+<script>
+const STAFF = ['Suhail','Shine','Unni','Hafeez','Nikhilesh','Zeeshan','Binoy'];
+const DUTIES = ['M','M1','M2','M5'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+let leaveData = {}; // { 'Suhail': Set(['2025-06-15',...]) }
+let rosterData = null;
+let frozenRoster = null; // { staff: { date: duty } } — locked duties up to freeze date
+
+// ── Restore saved state if this is a saved HTML file ──
+function restoreSavedState() {
+  if (!window.__SAVED_STATE__) return false;
+  const state = window.__SAVED_STATE__;
+
+  // Restore month/year selectors
+  document.getElementById('monthSel').value = state.month;
+  document.getElementById('yearSel').value = state.year;
+
+  // Restore leave data
+  for (const [staff, dates] of Object.entries(state.leaveData || {})) {
+    leaveData[staff] = new Set(dates);
+  }
+  renderLeaveTags();
+
+  // Restore freeze date input
+  if (state.freezeDateValue) {
+    document.getElementById('freezeDate').value = state.freezeDateValue;
+  }
+
+  // Re-build rosterData from saved roster (no re-generation)
+  const month = state.month;
+  const year = state.year;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const dates = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    dates.push({
+      date: d, dt,
+      iso: `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+      isWeekend: isWeekend(dt), day: dt.getDay()
+    });
+  }
+
+  // Restore roster — convert date keys back to numbers
+  const roster = {};
+  STAFF.forEach(s => {
+    roster[s] = {};
+    if (state.roster[s]) {
+      for (const [k, v] of Object.entries(state.roster[s])) {
+        roster[s][parseInt(k)] = v;
+      }
+    }
+  });
+
+  rosterData = { roster, dates, month, year, daysInMonth, freezeDay: state.freezeDay || 0 };
+
+  // Rebuild frozenRoster snapshot
+  frozenRoster = {};
+  STAFF.forEach(s => { frozenRoster[s] = { ...roster[s] }; });
+
+  // Update freeze badge if active
+  if (state.freezeDay) {
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('freezeActiveBadge').innerHTML =
+      `<span class="freeze-active-badge">🔒 Frozen up to ${state.freezeDay} ${MONTHS_SHORT[month]} <span onclick="clearFreeze()">×</span></span>`;
+    document.getElementById('freezeHint').style.display = 'none';
+  }
+
+  renderRoster();
+  return true;
+}
+
+// Init dropdowns
+const monthSel = document.getElementById('monthSel');
+const yearSel = document.getElementById('yearSel');
+const leaveStaffSel = document.getElementById('leaveStaff');
+
+MONTHS.forEach((m,i)=>{
+  const o = document.createElement('option');
+  o.value = i; o.textContent = m;
+  monthSel.appendChild(o);
+});
+const now = new Date();
+monthSel.value = now.getMonth();
+
+for(let y = 2024; y <= 2030; y++){
+  const o = document.createElement('option');
+  o.value = y; o.textContent = y;
+  yearSel.appendChild(o);
+}
+yearSel.value = now.getFullYear();
+
+STAFF.forEach(s=>{
+  const o = document.createElement('option');
+  o.value = s; o.textContent = s;
+  leaveStaffSel.appendChild(o);
+});
+
+function isWeekend(date) {
+  const d = date.getDay();
+  return d === 5 || d === 6; // Fri=5, Sat=6
+}
+
+function getWeekNumber(date, monthStart) {
+  // Week starts Sunday (0), ends Thursday (4)
+  // Returns week index for that date within the month (0-based)
+  const dayOfMonth = date.getDate() - 1;
+  const startDay = monthStart.getDay(); // day of week for 1st of month
+  return Math.floor((dayOfMonth + startDay) / 7);
+}
+
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addLeave() {
+  const staff = leaveStaffSel.value;
+  const from = document.getElementById('leaveFrom').value;
+  const to = document.getElementById('leaveTo').value;
+  if (!from) return alert('Please select a From date.');
+  const endDate = to || from; // if no To, treat as single day
+  const start = new Date(from + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  if (end < start) return alert('To date must be on or after From date.');
+  if (!leaveData[staff]) leaveData[staff] = new Set();
+  // Add every calendar day in the range (weekends will be ignored at roster gen)
+  const cur = new Date(start);
+  while (cur <= end) {
+    const iso = localISO(cur);
+    leaveData[staff].add(iso);
+    cur.setDate(cur.getDate() + 1);
+  }
+  renderLeaveTags();
+}
+
+function removeLeave(staff, date) {
+  leaveData[staff].delete(date);
+  renderLeaveTags();
+}
+
+function clearAllLeave() {
+  leaveData = {};
+  renderLeaveTags();
+}
+
+function renderLeaveTags() {
+  const c = document.getElementById('leaveTags');
+  c.innerHTML = '';
+  for (const [staff, dates] of Object.entries(leaveData)) {
+    if (!dates.size) continue;
+    // Sort dates and group into consecutive ranges for compact display
+    const sorted = [...dates].sort();
+    const ranges = [];
+    let rangeStart = sorted[0], rangeEnd = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = new Date(rangeEnd + 'T00:00:00');
+      const curr = new Date(sorted[i] + 'T00:00:00');
+      const diff = (curr - prev) / 86400000;
+      if (diff <= 1) {
+        rangeEnd = sorted[i];
+      } else {
+        ranges.push([rangeStart, rangeEnd]);
+        rangeStart = sorted[i]; rangeEnd = sorted[i];
+      }
+    }
+    ranges.push([rangeStart, rangeEnd]);
+
+    ranges.forEach(([from, to]) => {
+      const tag = document.createElement('div');
+      tag.className = 'leave-tag';
+      const fd = new Date(from + 'T00:00:00');
+      const td2 = new Date(to + 'T00:00:00');
+      const fmt = d => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`;
+      const label = from === to ? `${staff}: ${fmt(fd)}` : `${staff}: ${fmt(fd)} → ${fmt(td2)}`;
+      // remove button removes all dates in this range
+      tag.innerHTML = `${label} <span onclick="removeLeaveRange('${staff}','${from}','${to}')">×</span>`;
+      c.appendChild(tag);
+    });
+  }
+}
+
+function removeLeaveRange(staff, from, to) {
+  if (!leaveData[staff]) return;
+  const start = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  const cur = new Date(start);
+  while (cur <= end) {
+    leaveData[staff].delete(localISO(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  renderLeaveTags();
+}
+
+function clearFreeze() {
+  document.getElementById('freezeDate').value = '';
+  frozenRoster = null;
+  document.getElementById('freezeActiveBadge').innerHTML = '';
+  document.getElementById('freezeHint').style.display = '';
+}
+
+function generateRoster() {
+  const month = parseInt(monthSel.value);
+  const year = parseInt(yearSel.value);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthStart = new Date(year, month, 1);
+
+  // Build date list (working days only: Sun-Thu)
+  const dates = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    dates.push({ date: d, dt, iso: `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`, isWeekend: isWeekend(dt), day: dt.getDay() });
+  }
+
+  // Init roster: all staff, all dates
+  const roster = {};
+  STAFF.forEach(s => { roster[s] = {}; });
+
+  // Mark weekends and leaves first
+  dates.forEach(({ date, iso, isWeekend: iw }) => {
+    STAFF.forEach(s => {
+      if (iw) {
+        roster[s][date] = 'OFF';
+      } else if (leaveData[s] && leaveData[s].has(iso)) {
+        roster[s][date] = 'LEAVE';
+      } else {
+        roster[s][date] = null; // to be assigned
+      }
+    });
+  });
+
+  // ── FREEZE LOGIC ──
+  // If a freeze date is set, keep existing duties for all days up to that date.
+  // Only regenerate from the day after the freeze date to end of month.
+  const freezeInput = document.getElementById('freezeDate').value;
+  const freezeDay = freezeInput ? parseInt(freezeInput.split('-')[2]) : 0;
+  const freezeMonth = freezeInput ? parseInt(freezeInput.split('-')[1]) - 1 : -1;
+  const freezeYear = freezeInput ? parseInt(freezeInput.split('-')[0]) : -1;
+  const freezeApplies = freezeInput && freezeYear === year && freezeMonth === month;
+
+  if (freezeApplies && frozenRoster) {
+    // Restore frozen duties for days 1..freezeDay
+    dates.forEach(({ date }) => {
+      if (date <= freezeDay) {
+        STAFF.forEach(s => {
+          if (frozenRoster[s] && frozenRoster[s][date] !== undefined) {
+            roster[s][date] = frozenRoster[s][date];
+          }
+        });
+      }
+    });
+  }
+
+  // Dates to regenerate: if freeze applies, only days after freezeDay; else all working days
+  const workingDates = dates.filter(d => !d.isWeekend && (!freezeApplies || d.date > freezeDay));
+  // All working dates (including frozen) used for week grouping context
+  const allWorkingDates = dates.filter(d => !d.isWeekend);
+
+  // Group working days by week
+  // Build weekMap only for days that need assignment (post-freeze)
+  const weekMap = {};
+  workingDates.forEach(d => {
+    const wk = getWeekNumber(d.dt, monthStart);
+    if (!weekMap[wk]) weekMap[wk] = [];
+    weekMap[wk].push(d);
+  });
+
+  // Shuffle helper for tie-breaking randomness
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Monthly duty counts — seeded from frozen duties so equal distribution continues correctly
+  const monthCount = {};
+  STAFF.forEach(s => monthCount[s] = { M: 0, M1: 0, M2: 0, M5: 0 });
+  if (freezeApplies) {
+    dates.forEach(({ date }) => {
+      if (date <= freezeDay) {
+        STAFF.forEach(s => {
+          const d = roster[s][date];
+          if (d && monthCount[s][d] !== undefined) monthCount[s][d]++;
+        });
+      }
+    });
+  }
+
+  // Pick from pool: prefer staff with fewest 'duty' count so far (equal distribution)
+  function pickFewest(pool, duty) {
+    if (!pool.length) return null;
+    const shuffled = shuffle(pool); // randomise ties
+    shuffled.sort((a, b) => (monthCount[a][duty] || 0) - (monthCount[b][duty] || 0));
+    return shuffled[0];
+  }
+
+  // Process week by week
+  Object.values(weekMap).forEach(weekDays => {
+    // Per-week tracking: seed from already-frozen days in this week
+    const weekGot = {};
+    STAFF.forEach(s => weekGot[s] = new Set());
+
+    // Seed weekGot from frozen duties in this week (days <= freezeDay)
+    if (freezeApplies) {
+      weekDays.forEach(({ date }) => {
+        if (date <= freezeDay) {
+          STAFF.forEach(s => {
+            const d = roster[s][date];
+            if (d && ['M','M1','M5'].includes(d)) weekGot[s].add(d);
+          });
+        }
+      });
+    }
+
+    weekDays.forEach(({ date }) => {
+      const available = STAFF.filter(s => roster[s][date] === null);
+      if (available.length === 0) return;
+
+      const dayAssigned = {};
+
+      // Is Suhail on leave today?
+      const suhailOnLeave = roster['Suhail'] && roster['Suhail'][date] === 'LEAVE';
+
+      // STRICT: canGet enforces no duplicate M, M1, M5 per staff per week — NEVER relaxed
+      const canGet = (s, duty) => {
+        if (dayAssigned[s]) return false;
+        if (weekGot[s].has(duty)) return false;          // STRICT: already had this duty this week
+        if (weekGot[s].size >= 2) return false;          // max 2 specials per week
+        if (duty === 'M5' && s === 'Suhail') return false;
+        if (duty === 'M5' && s === 'Shine' && suhailOnLeave) return false;
+        return true;
+      };
+
+      // canGetM5Relaxed: same as canGet for M5 but drops the "max 2 specials" limit.
+      // weekGot.has('M5') is NEVER dropped — strict no-duplicate-M5-per-week always holds.
+      const canGetM5Relaxed = (s) => {
+        if (dayAssigned[s]) return false;
+        if (weekGot[s].has('M5')) return false;          // STRICT: never give M5 twice in a week
+        if (s === 'Suhail') return false;
+        if (s === 'Shine' && suhailOnLeave) return false;
+        return true;
+      };
+
+      // RULE: If anyone is on leave today, no M duty is assigned — everyone gets M2 instead
+      const anyOnLeave = STAFF.some(s => roster[s][date] === 'LEAVE');
+
+      // Assign M — only if nobody is on leave today; strict weekly uniqueness
+      if (!anyOnLeave) {
+        const poolM = available.filter(s => canGet(s, 'M'));
+        const chosenM = pickFewest(poolM, 'M');
+        if (chosenM) { dayAssigned[chosenM] = 'M'; weekGot[chosenM].add('M'); monthCount[chosenM].M++; }
+      }
+
+      // Assign M1 — strict weekly uniqueness
+      const poolM1 = available.filter(s => canGet(s, 'M1'));
+      const chosenM1 = pickFewest(poolM1, 'M1');
+      if (chosenM1) { dayAssigned[chosenM1] = 'M1'; weekGot[chosenM1].add('M1'); monthCount[chosenM1].M1++; }
+
+      // Assign M5 — strict no-duplicate-per-week; only relax the "max 2 specials" cap if needed
+      let poolM5 = available.filter(s => canGet(s, 'M5'));
+      if (!poolM5.length) {
+        // Relax ONLY the 2-specials-per-week cap; weekly M5 uniqueness remains absolute
+        poolM5 = available.filter(s => canGetM5Relaxed(s));
+      }
+      const chosenM5 = pickFewest(poolM5, 'M5');
+      if (chosenM5) { dayAssigned[chosenM5] = 'M5'; weekGot[chosenM5].add('M5'); monthCount[chosenM5].M5++; }
+
+      // Assign M2 to remaining — fewest M2 count first to equalize
+      // Sort available unassigned by fewest M2, then assign M2
+      const unassigned = shuffle(available.filter(s => !dayAssigned[s]));
+      unassigned.sort((a, b) => monthCount[a].M2 - monthCount[b].M2);
+      unassigned.forEach(s => {
+        dayAssigned[s] = 'M2';
+        monthCount[s].M2++;
+      });
+
+      available.forEach(s => { roster[s][date] = dayAssigned[s]; });
+    });
+  });
+
+  // Save the full roster as frozen snapshot for future re-generations
+  frozenRoster = {};
+  STAFF.forEach(s => { frozenRoster[s] = { ...roster[s] }; });
+
+  // Update freeze badge
+  if (freezeApplies) {
+    const fd = new Date(year, month, freezeDay);
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('freezeActiveBadge').innerHTML =
+      `<span class="freeze-active-badge">🔒 Frozen up to ${freezeDay} ${MONTHS_SHORT[month]} <span onclick="clearFreeze()">×</span></span>`;
+    document.getElementById('freezeHint').style.display = 'none';
+  }
+
+  rosterData = { roster, dates, month, year, daysInMonth, freezeDay: freezeApplies ? freezeDay : 0 };
+  renderRoster();
+}
+
+function renderRoster() {
+  if (!rosterData) return;
+  const { roster, dates, month, year } = rosterData;
+
+  // Stats
+  const statsBar = document.getElementById('statsBar');
+  statsBar.innerHTML = '';
+  const totalWorkDays = dates.filter(d => !d.isWeekend).length;
+  const addStat = (label, val, cls='') => {
+    const chip = document.createElement('div');
+    chip.className = 'stat-chip ' + cls;
+    chip.innerHTML = `${label}: <strong>${val}</strong>`;
+    statsBar.appendChild(chip);
+  };
+  addStat('Month', MONTHS[month] + ' ' + year);
+  addStat('Working Days', totalWorkDays);
+  addStat('Total Staff', STAFF.length);
+  addStat('Weekend Off', 'Fri & Sat');
+
+  // Table
+  const container = document.getElementById('rosterContainer');
+  container.innerHTML = '';
+
+  const table = document.createElement('table');
+
+  // Header row
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const th0 = document.createElement('th');
+  th0.className = 'staff-col';
+  th0.textContent = 'Staff';
+  hr.appendChild(th0);
+  dates.forEach(({ date, dt, day }) => {
+    const th = document.createElement('th');
+    if (dt.getDay() === 5 || dt.getDay() === 6) th.className = 'weekend-col';
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    th.innerHTML = `<div class="date-header"><span class="date-num">${date}</span><span class="date-day">${dayNames[dt.getDay()]}</span></div>`;
+    hr.appendChild(th);
+  });
+  // Summary columns
+  ['M','M1','M2','M5','Leave'].forEach(d => {
+    const th = document.createElement('th');
+    th.textContent = d;
+    th.style.borderLeft = '2px solid var(--border)';
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  STAFF.forEach(s => {
+    const tr = document.createElement('tr');
+    const td0 = document.createElement('td');
+    td0.className = 'staff-name';
+    td0.textContent = s;
+    tr.appendChild(td0);
+
+    let counts = { M: 0, M1: 0, M2: 0, M5: 0, LEAVE: 0 };
+    dates.forEach(({ date, dt }) => {
+      const td = document.createElement('td');
+      const isFrozen = rosterData.freezeDay && date <= rosterData.freezeDay;
+      if (dt.getDay() === 5 || dt.getDay() === 6) td.className = 'weekend-col' + (isFrozen ? ' frozen-col' : '');
+      else if (isFrozen) td.className = 'frozen-col';
+      const duty = roster[s][date];
+      if (duty) {
+        const span = document.createElement('span');
+        span.className = `duty-badge badge-${duty}`;
+        const displayText = duty === 'OFF' ? 'O' : duty === 'LEAVE' ? 'L' : duty;
+        span.textContent = displayText;
+        td.appendChild(span);
+        if (counts[duty] !== undefined) counts[duty]++;
+      }
+      tr.appendChild(td);
+    });
+
+    ['M','M1','M2','M5','LEAVE'].forEach(d => {
+      const td = document.createElement('td');
+      td.textContent = counts[d] || 0;
+      td.style.borderLeft = d === 'M' ? '2px solid var(--border)' : '';
+      td.style.fontFamily = 'Space Mono, monospace';
+      td.style.fontSize = '0.75rem';
+      td.style.color = d === 'LEAVE' ? 'var(--leave)' : 'var(--text-muted)';
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+
+  // Summary by duty per day
+  renderSummary();
+}
+
+function renderSummary() {
+  const { roster, dates } = rosterData;
+  const container = document.getElementById('summaryContainer');
+  container.innerHTML = '';
+
+  const title = document.createElement('div');
+  title.style.cssText = 'padding:6px 28px 4px;font-size:0.78rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;font-family:Space Mono,monospace;';
+  title.textContent = 'Weekly Duty Summary';
+  container.appendChild(title);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'summary-table';
+  const table = document.createElement('table');
+
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  ['Staff','M (total)','M1 (total)','M5 (total)','M2 (total)','Leave Days'].forEach((h,i) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if (i === 0) th.style.textAlign = 'left';
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  STAFF.forEach(s => {
+    const tr = document.createElement('tr');
+    const counts = { M:0,M1:0,M2:0,M5:0,LEAVE:0 };
+    dates.forEach(({ date }) => {
+      const d = roster[s][date];
+      if (counts[d] !== undefined) counts[d]++;
+    });
+    [s, counts.M, counts.M1, counts.M5, counts.M2, counts.LEAVE].forEach((v,i) => {
+      const td = document.createElement('td');
+      td.textContent = v;
+      if (i === 0) { td.style.textAlign='left'; td.style.fontWeight='600'; }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  container.appendChild(wrap);
+}
+
+function exportExcel() {
+  if (!rosterData) return alert('Please generate the roster first.');
+  const { roster, dates, month, year } = rosterData;
+
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const headers = ['Staff', ...dates.map(d => `${d.date} ${dayNames[d.dt.getDay()]}`), 'M','M1','M2','M5','Leave'];
+  const wsData = [headers];
+
+  STAFF.forEach(s => {
+    const counts = { M:0,M1:0,M2:0,M5:0,LEAVE:0 };
+    const row = [s];
+    dates.forEach(({ date }) => {
+      const d = roster[s][date] || '';
+      const display = d === 'OFF' ? 'O' : d === 'LEAVE' ? 'L' : d;
+      row.push(display);
+      if (counts[d] !== undefined) counts[d]++;
+    });
+    row.push(counts.M, counts.M1, counts.M2, counts.M5, counts.LEAVE);
+    wsData.push(row);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [{ wch: 14 }, ...dates.map(() => ({ wch: 6 })), ...Array(5).fill({ wch: 7 })];
+
+  XLSX.utils.book_append_sheet(wb, ws, `${MONTHS[month].slice(0,3)} ${year}`);
+  XLSX.writeFile(wb, `Duty_Roster_${MONTHS[month]}_${year}.xlsx`);
+}
+
+// Auto-generate on load — skip if restoring a saved file
+if (!restoreSavedState()) generateRoster();
+
+function saveRoster() {
+  if (!rosterData) return alert('Please generate the roster first.');
+
+  // Collect all state to embed
+  const state = {
+    month: rosterData.month,
+    year: rosterData.year,
+    freezeDay: rosterData.freezeDay || 0,
+    freezeDateValue: document.getElementById('freezeDate').value || '',
+    leaveData: {},
+    roster: {}
+  };
+
+  // Serialize leaveData (Sets → Arrays)
+  for (const [staff, dates] of Object.entries(leaveData)) {
+    state.leaveData[staff] = [...dates];
+  }
+
+  // Serialize full roster
+  STAFF.forEach(s => {
+    state.roster[s] = { ...rosterData.roster[s] };
+  });
+
+  // Fetch own source cleanly — avoids any DOM serializer issues
+  fetch(location.href)
+    .then(r => r.text())
+    .then(html => {
+      const stateJson = JSON.stringify(state);
+      const endTag = '</' + 'script>';
+      const marker = '<script id="__savedState__">';
+
+      // Strip any previously saved state block
+      while (html.includes(marker)) {
+        const s = html.indexOf(marker);
+        const e = html.indexOf(endTag, s);
+        if (e === -1) break;
+        html = html.slice(0, s) + html.slice(e + endTag.length);
+      }
+
+      // Inject state just before </head>
+      const inject = marker + 'window.__SAVED_STATE__=' + stateJson + ';' + endTag;
+      html = html.replace('</head>', inject + '\n</head>');
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      a.download = 'Duty_Roster_' + MS[rosterData.month] + '_' + rosterData.year + '.html';
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => alert('Save failed: please use a local server or open from a web URL.'));
+}
+</script>
+</body>
+</html>
