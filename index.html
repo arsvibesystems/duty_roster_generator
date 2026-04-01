@@ -90,6 +90,12 @@
     color: #0e1117;
   }
   .btn-save:hover { background: #e6b83a; }
+  .btn-import {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-import:hover { border-color: var(--accent); color: var(--accent); }
   .btn-export {
     background: var(--accent3);
     color: #0e1117;
@@ -353,7 +359,9 @@
     <select id="monthSel"></select>
     <select id="yearSel"></select>
     <button class="btn-generate" onclick="generateRoster()">Generate Roster</button>
-    <button class="btn-save" onclick="saveRoster()">💾 Save Roster</button>
+    <button class="btn-import" onclick="document.getElementById('fileInput').click()">📂 Load File</button>
+    <input type="file" id="fileInput" accept=".roster" style="display: none;" onchange="loadRosterFile(event)">
+    <button class="btn-save" onclick="saveRoster()">💾 Save Data</button>
     <button class="btn-export" onclick="exportExcel()">Export to Excel</button>
   </div>
 </header>
@@ -409,12 +417,18 @@ let frozenRoster = null; // { staff: { date: duty } } — locked duties up to fr
 
 // ── Restore saved state if this is a saved HTML file ──
 function restoreSavedState() {
-  if (!window.__SAVED_STATE__) return false;
-  const state = window.__SAVED_STATE__;
+  try {
+    if (!window.__SAVED_STATE__) return false;
+    const state = window.__SAVED_STATE__;
+    if (state.month === undefined || state.year === undefined || !state.roster) return false;
 
-  // Restore month/year selectors
-  document.getElementById('monthSel').value = state.month;
-  document.getElementById('yearSel').value = state.year;
+    // Restore month/year selectors — use String() to match option values
+    document.getElementById('monthSel').value = String(state.month);
+    document.getElementById('yearSel').value = String(state.year);
+    // Verify selectors actually got set (year might be out of range)
+    const ms = document.getElementById('monthSel');
+    const ys = document.getElementById('yearSel');
+    if (ms.value === '' || ys.value === '') return false;
 
   // Restore leave data
   for (const [staff, dates] of Object.entries(state.leaveData || {})) {
@@ -468,6 +482,10 @@ function restoreSavedState() {
 
   renderRoster();
   return true;
+  } catch(e) {
+    console.error('restoreSavedState failed:', e);
+    return false;
+  }
 }
 
 // Init dropdowns
@@ -1000,36 +1018,35 @@ function saveRoster() {
     state.roster[s] = { ...rosterData.roster[s] };
   });
 
-  // Fetch own source cleanly — avoids any DOM serializer issues
-  fetch(location.href)
-    .then(r => r.text())
-    .then(html => {
-      const stateJson = JSON.stringify(state);
-      const endTag = '</' + 'script>';
-      const marker = '<script id="__savedState__">';
+  const stateJson = JSON.stringify(state, null, 2);
 
-      // Strip any previously saved state block
-      while (html.includes(marker)) {
-        const s = html.indexOf(marker);
-        const e = html.indexOf(endTag, s);
-        if (e === -1) break;
-        html = html.slice(0, s) + html.slice(e + endTag.length);
+  const blob = new Blob([stateJson], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  a.download = 'Duty_Roster_' + MS[rosterData.month] + '_' + rosterData.year + '.roster';
+  a.href = url;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadRosterFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const state = JSON.parse(e.target.result);
+      window.__SAVED_STATE__ = state;
+      if (!restoreSavedState()) {
+        alert('Failed to load. The file data might be incomplete or corrupted.');
       }
-
-      // Inject state just before </head>
-      const inject = marker + 'window.__SAVED_STATE__=' + stateJson + ';' + endTag;
-      html = html.replace('</head>', inject + '\n</head>');
-
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      a.download = 'Duty_Roster_' + MS[rosterData.month] + '_' + rosterData.year + '.html';
-      a.href = url;
-      a.click();
-      URL.revokeObjectURL(url);
-    })
-    .catch(() => alert('Save failed: please use a local server or open from a web URL.'));
+    } catch (err) {
+      alert('Invalid roster file format.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // Reset input to allow reloading the same file
 }
 </script>
 </body>
