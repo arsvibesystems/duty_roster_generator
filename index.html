@@ -778,7 +778,15 @@ function generateRoster() {
       }
 
       // Assign M1 — strict weekly uniqueness
-      const poolM1 = available.filter(s => canGet(s, 'M1'));
+      let poolM1 = available.filter(s => canGet(s, 'M1'));
+      if (!poolM1.length) {
+        // Fallback: Drop max 2 specials rule, just enforce weekly M1 uniqueness
+        poolM1 = available.filter(s => !dayAssigned[s] && !weekGot[s].has('M1'));
+      }
+      if (!poolM1.length) {
+        // Absolute fallback: Ensure we have an M1 even if it duplicates per week
+        poolM1 = available.filter(s => !dayAssigned[s]);
+      }
       const chosenM1 = pickFewest(poolM1, 'M1');
       if (chosenM1) { dayAssigned[chosenM1] = 'M1'; weekGot[chosenM1].add('M1'); monthCount[chosenM1].M1++; }
 
@@ -787,6 +795,19 @@ function generateRoster() {
       if (!poolM5.length) {
         // Relax ONLY the 2-specials-per-week cap; weekly M5 uniqueness remains absolute
         poolM5 = available.filter(s => canGetM5Relaxed(s));
+      }
+      if (!poolM5.length) {
+        // Fallback to ensure M5 is not 0 (but keep Suhail restrictions)
+        poolM5 = available.filter(s => {
+          if (dayAssigned[s]) return false;
+          if (s === 'Suhail') return false;
+          if (s === 'Shine' && suhailOnLeave) return false;
+          return true;
+        });
+      }
+      if (!poolM5.length) {
+        // Absolute fallback just in case
+        poolM5 = available.filter(s => !dayAssigned[s]);
       }
       const chosenM5 = pickFewest(poolM5, 'M5');
       if (chosenM5) { dayAssigned[chosenM5] = 'M5'; weekGot[chosenM5].add('M5'); monthCount[chosenM5].M5++; }
@@ -909,6 +930,70 @@ function renderRoster() {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
+
+  // Add daily totals row
+  const tfoot = document.createElement('tbody');
+  tfoot.style.borderTop = '2px solid var(--border)';
+  tfoot.style.backgroundColor = 'rgba(30,38,54,0.3)';
+
+  const dailyTotalRows = ['M1','M5','M','M2'];
+  dailyTotalRows.forEach(rDuty => {
+    const tr = document.createElement('tr');
+    tr.style.fontWeight = '600';
+
+    const td0 = document.createElement('td');
+    td0.className = 'staff-name';
+    td0.textContent = `Daily ${rDuty}`;
+    td0.style.color = `var(--${rDuty})`;
+    tr.appendChild(td0);
+
+    let totalDutyMonth = 0;
+
+    dates.forEach(({ date, dt }) => {
+      const td = document.createElement('td');
+      const isFrozen = rosterData.freezeDay && date <= rosterData.freezeDay;
+      const isWeekend = dt.getDay() === 5 || dt.getDay() === 6;
+      
+      if (isWeekend) td.className = 'weekend-col' + (isFrozen ? ' frozen-col' : '');
+      else if (isFrozen) td.className = 'frozen-col';
+
+      let countForDay = 0;
+      STAFF.forEach(s => {
+        if (roster[s][date] === rDuty) countForDay++;
+      });
+
+      if (isWeekend) {
+        td.textContent = countForDay > 0 ? countForDay : '';
+      } else {
+        td.textContent = countForDay;
+        // Highlight 0 M1/M5 as an error indicator
+        if (countForDay === 0 && (rDuty === 'M1' || rDuty === 'M5')) {
+          td.style.color = 'var(--leave)';
+        }
+      }
+      
+      totalDutyMonth += countForDay;
+      tr.appendChild(td);
+    });
+
+    ['M','M1','M2','M5','LEAVE'].forEach(d => {
+      const td = document.createElement('td');
+      td.style.borderLeft = d === 'M' ? '2px solid var(--border)' : '';
+      td.style.fontFamily = 'Space Mono, monospace';
+      td.style.fontSize = '0.75rem';
+      
+      if (d === rDuty) {
+        td.textContent = totalDutyMonth;
+      } else {
+        td.textContent = '';
+      }
+      tr.appendChild(td);
+    });
+
+    tfoot.appendChild(tr);
+  });
+  table.appendChild(tfoot);
+
   container.appendChild(table);
 
   // Summary by duty per day
@@ -979,6 +1064,34 @@ function exportExcel() {
       if (counts[d] !== undefined) counts[d]++;
     });
     row.push(counts.M, counts.M1, counts.M2, counts.M5, counts.LEAVE);
+    wsData.push(row);
+  });
+
+  // Add daily totals in Excel
+  const dailyTotalDuties = ['M1','M5','M','M2'];
+  dailyTotalDuties.forEach(rDuty => {
+    const row = [`Daily ${rDuty}`];
+    
+    let totalInMonth = 0;
+    dates.forEach(({ date, dt }) => {
+      let count = 0;
+      STAFF.forEach(s => {
+        if (roster[s][date] === rDuty) count++;
+      });
+      
+      const isWeekend = dt.getDay() === 5 || dt.getDay() === 6;
+      if (isWeekend) {
+        row.push(count > 0 ? count : '');
+      } else {
+        row.push(count);
+      }
+      totalInMonth += count;
+    });
+    
+    const summaryCols = { M:'', M1:'', M2:'', M5:'', LEAVE:'' };
+    summaryCols[rDuty] = totalInMonth;
+    row.push(summaryCols.M, summaryCols.M1, summaryCols.M2, summaryCols.M5, summaryCols.LEAVE);
+    
     wsData.push(row);
   });
 
